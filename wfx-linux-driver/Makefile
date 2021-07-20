@@ -2,7 +2,7 @@ ifeq ($(KERNELRELEASE),)
 
 .NOTPARALLEL:
 
-KDIR ?= /lib/modules/$(shell uname -r)/build
+KDIR ?= /u00/e4-baseboard-xavier-nx-32.4.5/Linux_for_Tegra/rootfs-dev/usr/src/sources/kernel/kernel-4.9/out
 
 all: modules
 
@@ -14,10 +14,10 @@ install: modules_install
 	depmod
 
 %.o: %.c
-	$(MAKE) -C $(KDIR) M=$(shell pwd) $@
+	$(MAKE) ARCH=arm64 -C $(KDIR) M=$(shell pwd) $@
 
 modules modules_install clean help:
-	$(MAKE) -C $(KDIR) M=$(shell pwd) $@
+	$(MAKE) ARCH=arm64 -C $(KDIR) M=$(shell pwd) $@
 
 deb-pkg:
 	dkms mkdeb --source-only .
@@ -66,7 +66,7 @@ wfx-$(CONFIG_WFX_SECURE_LINK) += \
 	mbedtls/library/sha512.o
 
 ccflags-$(CONFIG_WFX_SECURE_LINK) += \
-	-I$(src)/mbedtls/include -DDEBUG -DCONFIG_WFX_SECURE_LINK=y
+	-I$(src)/mbedtls/include -DCONFIG_WFX_SECURE_LINK=y
 
 obj-m += wfx.o
 
