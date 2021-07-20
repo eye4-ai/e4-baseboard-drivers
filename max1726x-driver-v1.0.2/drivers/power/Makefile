@@ -1,5 +1,10 @@
 KERNEL?=$(shell uname -r)
 modname=max1726x_battery
 obj-m := $(modname).o
+
 all:
-	make ARCH=arm64 -C /u00/e4-baseboard-xavier-nx-32.4.5/Linux_for_Tegra/rootfs-dev/usr/src/sources/kernel/kernel-4.9/out M=$(PWD) modules
+	make -C $(BASE_ROOT)/lib/modules/$(KERNEL)/build M=$(PWD) INSTALL_MOD_PATH=$(BASE_ROOT) modules
+install:
+	make -C $(BASE_ROOT)/lib/modules/$(KERNEL)/build M=$(PWD) INSTALL_MOD_PATH=$(BASE_ROOT) modules_install
+clean:
+	rm -fR .*.cmd *.o *.ko .tmp_versions Module.symvers modules.order *.mod.c
