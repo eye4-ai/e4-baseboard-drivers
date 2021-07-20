@@ -1,6 +1,7 @@
 KERNEL?=$(shell uname -r)
 modname=max1726x_battery
 obj-m := $(modname).o
+ccflags-y=-I$(PWD)/../../include
 
 all:
 	make -C $(BASE_ROOT)/lib/modules/$(KERNEL)/build M=$(PWD) INSTALL_MOD_PATH=$(BASE_ROOT) modules
