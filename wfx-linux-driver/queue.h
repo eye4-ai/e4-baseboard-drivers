@@ -16,7 +16,7 @@ struct wfx_vif;
 
 struct wfx_queue {
 	struct sk_buff_head	normal;
-	struct sk_buff_head	cab; // Content After (DTIM) Beacon
+	struct sk_buff_head	cab; /* Content After (DTIM) Beacon */
 	atomic_t		pending_frames;
 	int			priority;
 };
@@ -42,4 +42,4 @@ unsigned int wfx_pending_get_pkt_us_delay(struct wfx_dev *wdev,
 					  struct sk_buff *skb);
 void wfx_pending_dump_old_frames(struct wfx_dev *wdev, unsigned int limit_ms);
 
-#endif /* WFX_QUEUE_H */
+#endif

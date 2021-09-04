@@ -2,7 +2,7 @@ ifeq ($(KERNELRELEASE),)
 
 .NOTPARALLEL:
 
-KDIR ?= /u00/e4-baseboard-xavier-nx-32.4.5/Linux_for_Tegra/rootfs-dev/usr/src/sources/kernel/kernel-4.9/out
+KDIR ?= /lib/modules/$(shell uname -r)/build
 
 all: modules
 
@@ -14,10 +14,10 @@ install: modules_install
 	depmod
 
 %.o: %.c
-	$(MAKE) ARCH=arm64 -C $(KDIR) M=$(shell pwd) $@
+	$(MAKE) -C $(KDIR) M=$(shell pwd) $@
 
 modules modules_install clean help:
-	$(MAKE) ARCH=arm64 -C $(KDIR) M=$(shell pwd) $@
+	$(MAKE) -C $(KDIR) M=$(shell pwd) $@
 
 deb-pkg:
 	dkms mkdeb --source-only .
@@ -25,6 +25,7 @@ deb-pkg:
 else
 
 CONFIG_WFX_SECURE_LINK ?= y
+
 
 
 CFLAGS_debug.o = -I$(src)

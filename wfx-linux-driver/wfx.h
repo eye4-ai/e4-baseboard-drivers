@@ -23,7 +23,7 @@
 #include "secure_link.h"
 #include "hif_tx.h"
 
-#define USEC_PER_TXOP 32 // see struct ieee80211_tx_queue_params
+#define USEC_PER_TXOP 32 /* see struct ieee80211_tx_queue_params */
 #define USEC_PER_TU 1024
 
 #if (KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE)
@@ -48,9 +48,10 @@ static inline void _ieee80211_hw_set(struct ieee80211_hw *hw,
 #endif
 
 #if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
-// In kernels < 4.1, if we transate these define with 0, it is sufficient to
-// make cfg80211_get_bss() happy. However, their values in kernel > 4.1 are not
-// 0. So, only use them as parameters to cfg80211_get_bss().
+/* In kernels < 4.1, if we transate these define with 0, it is sufficient to
+ * make cfg80211_get_bss() happy. However, their values in kernel > 4.1 are not
+ * 0. So, only use them as parameters to cfg80211_get_bss().
+ */
 #define IEEE80211_BSS_TYPE_ANY 0
 #define IEEE80211_PRIVACY_ANY  0
 #endif
@@ -136,6 +137,7 @@ struct wfx_vif {
 	struct work_struct	scan_work;
 	struct mutex		scan_lock;
 	struct completion	scan_complete;
+	int			scan_nb_chan_done;
 	bool			scan_abort;
 
 	struct completion	set_pm_mode_complete;
@@ -148,12 +150,9 @@ static inline struct wfx_vif *wdev_to_wvif(struct wfx_dev *wdev, int vif_id)
 		return NULL;
 	}
 	vif_id = array_index_nospec(vif_id, ARRAY_SIZE(wdev->vif));
-	if (!wdev->vif[vif_id]) {
-		dev_dbg(wdev->dev, "requesting non-allocated vif: %d\n",
-			vif_id);
+	if (!wdev->vif[vif_id])
 		return NULL;
-	}
-	return (struct wfx_vif *) wdev->vif[vif_id]->drv_priv;
+	return (struct wfx_vif *)wdev->vif[vif_id]->drv_priv;
 }
 
 static inline struct wfx_vif *wvif_iterate(struct wfx_dev *wdev,
@@ -213,4 +212,4 @@ static inline int memzcmp(void *src, unsigned int size)
 	return memcmp(buf, buf + 1, size - 1);
 }
 
-#endif /* WFX_H */
+#endif
