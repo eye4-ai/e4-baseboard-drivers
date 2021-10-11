@@ -81,11 +81,6 @@ static int hif_startup_indication(struct wfx_dev *wdev,
 		return -EINVAL;
 	}
 	memcpy(&wdev->hw_caps, body, sizeof(struct hif_ind_startup));
-	le16_to_cpus((__le16 *)&wdev->hw_caps.hardware_id);
-	le16_to_cpus((__le16 *)&wdev->hw_caps.num_inp_ch_bufs);
-	le16_to_cpus((__le16 *)&wdev->hw_caps.size_inp_ch_buf);
-	le32_to_cpus((__le32 *)&wdev->hw_caps.supported_rate_mask);
-
 	complete(&wdev->firmware_ready);
 	return 0;
 }
@@ -121,14 +116,29 @@ static int hif_receive_indication(struct wfx_dev *wdev,
 	const struct hif_ind_rx *body = buf;
 
 	if (!wvif) {
-		dev_warn(wdev->dev, "%s: ignore rx data for non-existent vif %d\n",
-			 __func__, hif->interface);
+		dev_warn(wdev->dev, "%s: received event for non-existent vif\n", __func__);
 		return -EIO;
 	}
 	skb_pull(skb, sizeof(struct hif_msg) + sizeof(struct hif_ind_rx));
 	wfx_rx_cb(wvif, body, skb);
 
 	return 0;
+}
+
+static void show_ps_error(struct wfx_dev *wdev, int error)
+{
+	if (error == HIF_PS_ERROR_AP_NOT_RESP_TO_POLL)
+		dev_warn(wdev->dev, "AP has not replied to Poll request\n");
+	else if (error == HIF_PS_ERROR_AP_NOT_RESP_TO_UAPSD_TRIGGER)
+		dev_warn(wdev->dev, "AP has not replied to UAPSD trigger\n");
+	else if (error == HIF_PS_ERROR_AP_SENT_UNICAST_IN_DOZE)
+		dev_warn(wdev->dev, "AP send unexpected data while the chip has been announced asleep\n");
+	else if (error == HIF_PS_ERROR_AP_NO_DATA_AFTER_TIM)
+		dev_warn(wdev->dev, "AP tx queue status mismatches the TIM. Power saving is suboptimal\n");
+	else if (error == HIF_PS_ERROR_AP_BEACON_TSF_JITTING)
+		dev_warn(wdev->dev, "AP beacon periods are unstable. Increasing wake-up duration\n");
+	else
+		dev_warn(wdev->dev, "power saving error: %d\n", error);
 }
 
 static int hif_event_indication(struct wfx_dev *wdev,
@@ -155,12 +165,10 @@ static int hif_event_indication(struct wfx_dev *wdev,
 		dev_dbg(wdev->dev, "ignore BSSREGAINED indication\n");
 		break;
 	case HIF_EVENT_IND_PS_MODE_ERROR:
-		dev_warn(wdev->dev, "error while processing power save request: %d\n",
-			 le32_to_cpu(body->event_data.ps_mode_error));
+		show_ps_error(wdev, le32_to_cpu(body->event_data.ps_mode_error));
 		break;
 	default:
-		dev_warn(wdev->dev, "unhandled event indication: %.2x\n",
-			 type);
+		dev_warn(wdev->dev, "unhandled event indication: %.2x\n", type);
 		break;
 	}
 	return 0;
@@ -418,7 +426,7 @@ void wfx_handle_rx(struct wfx_dev *wdev, struct sk_buff *skb)
 			goto free;
 		}
 	}
-	if (hif_id & 0x80)
+	if (hif_id & HIF_ID_IS_INDICATION)
 		dev_err(wdev->dev, "unsupported HIF indication: ID %02x\n",
 			hif_id);
 	else

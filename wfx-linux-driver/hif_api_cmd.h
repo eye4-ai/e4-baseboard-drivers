@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only or Apache-2.0 */
 /*
  * WF200 hardware interface definitions
  *
@@ -537,7 +537,8 @@ enum hif_ps_mode_error {
 	HIF_PS_ERROR_AP_NOT_RESP_TO_POLL           = 1,
 	HIF_PS_ERROR_AP_NOT_RESP_TO_UAPSD_TRIGGER  = 2,
 	HIF_PS_ERROR_AP_SENT_UNICAST_IN_DOZE       = 3,
-	HIF_PS_ERROR_AP_NO_DATA_AFTER_TIM          = 4
+	HIF_PS_ERROR_AP_NO_DATA_AFTER_TIM          = 4,
+	HIF_PS_ERROR_AP_BEACON_TSF_JITTING         = 5
 };
 
 struct hif_ind_event {

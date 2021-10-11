@@ -216,7 +216,7 @@ void wfx_tx_policy_init(struct wfx_vif *wvif)
 
 /* Tx implementation */
 
-static bool ieee80211_is_action_back(struct ieee80211_hdr *hdr)
+static bool wfx_is_action_back(struct ieee80211_hdr *hdr)
 {
 	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)hdr;
 
@@ -369,10 +369,10 @@ static int wfx_tx_inner(struct wfx_vif *wvif, struct ieee80211_sta *sta,
 	hif_msg->len = cpu_to_le16(skb->len);
 	hif_msg->id = HIF_REQ_ID_TX;
 	hif_msg->interface = wvif->id;
-	if (skb->len > wvif->wdev->hw_caps.size_inp_ch_buf) {
+	if (skb->len > le16_to_cpu(wvif->wdev->hw_caps.size_inp_ch_buf)) {
 		dev_warn(wvif->wdev->dev,
 			 "requested frame size (%d) is larger than maximum supported (%d)\n",
-			 skb->len, wvif->wdev->hw_caps.size_inp_ch_buf);
+			 skb->len, le16_to_cpu(wvif->wdev->hw_caps.size_inp_ch_buf));
 		skb_pull(skb, wmsg_len);
 		return -EIO;
 	}
@@ -380,7 +380,7 @@ static int wfx_tx_inner(struct wfx_vif *wvif, struct ieee80211_sta *sta,
 	/* Fill tx request */
 	req = (struct hif_req_tx *)hif_msg->body;
 	/* packet_id just need to be unique on device. 32bits are more than
-	 * necessary for that task, so we tae advantage of it to add some extra
+	 * necessary for that task, so we take advantage of it to add some extra
 	 * data for debug.
 	 */
 	req->packet_id = atomic_add_return(1, &wvif->wdev->packet_id) & 0xFFFF;
@@ -425,8 +425,8 @@ void wfx_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	size_t driver_data_room = sizeof_field(struct ieee80211_tx_info,
 					       rate_driver_data);
 
-	compiletime_assert(sizeof(struct wfx_tx_priv) <= driver_data_room,
-			   "struct tx_priv is too large");
+	BUILD_BUG_ON_MSG(sizeof(struct wfx_tx_priv) > driver_data_room,
+			 "struct tx_priv is too large");
 	WARN(skb->next || skb->prev, "skb is already member of a list");
 	/* control.vif can be NULL for injected frames */
 	if (tx_info->control.vif)
@@ -438,7 +438,7 @@ void wfx_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	/* Because of TX_AMPDU_SETUP_IN_HW, mac80211 does not try to send any
 	 * BlockAck session management frame. The check below exist just in case.
 	 */
-	if (ieee80211_is_action_back(hdr)) {
+	if (wfx_is_action_back(hdr)) {
 		dev_info(wdev->dev, "drop BA action\n");
 		goto drop;
 	}
@@ -460,7 +460,7 @@ static void wfx_skb_dtor(struct wfx_vif *wvif, struct sk_buff *skb)
 			      req->fc_offset;
 
 	if (!wvif) {
-		pr_warn("%s: vif associated with the skb does not exist anymore\n", __func__);
+		pr_warn("vif associated with the skb does not exist anymore\n");
 		return;
 	}
 	wfx_tx_policy_put(wvif, req->retry_policy_index);

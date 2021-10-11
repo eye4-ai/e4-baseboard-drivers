@@ -10,6 +10,7 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/card.h>
 #include <linux/interrupt.h>
+#include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/irq.h>
 
@@ -19,7 +20,41 @@
 #include "main.h"
 #include "bh.h"
 
-static const struct wfx_platform_data wfx_sdio_pdata = {
+#if (KERNEL_VERSION(4, 2, 0) > LINUX_VERSION_CODE)
+static const void *of_device_get_match_data(const struct device *dev)
+{
+	const struct of_device_id *match;
+
+	match = of_match_device(dev->driver->of_match_table, dev);
+	if (!match)
+		return NULL;
+
+	return match->data;
+}
+#endif
+
+static const struct wfx_platform_data pdata_wf200 = {
+	.file_fw = "wfm_wf200",
+	.file_pds = "wf200.pds",
+};
+
+static const struct wfx_platform_data pdata_brd4001a = {
+	.file_fw = "wfm_wf200",
+	.file_pds = "brd4001a.pds",
+};
+
+static const struct wfx_platform_data pdata_brd8022a = {
+	.file_fw = "wfm_wf200",
+	.file_pds = "brd8022a.pds",
+};
+
+static const struct wfx_platform_data pdata_brd8023a = {
+	.file_fw = "wfm_wf200",
+	.file_pds = "brd8023a.pds",
+};
+
+/* Legacy DT don't use it */
+static const struct wfx_platform_data pdata_wfx_sdio = {
 	.file_fw = "wfm_wf200",
 	.file_pds = "wf200.pds",
 };
@@ -120,19 +155,22 @@ static int wfx_sdio_irq_subscribe(void *priv)
 		return ret;
 	}
 
+	flags = irq_get_trigger_type(bus->of_irq);
+	if (!flags)
+		flags = IRQF_TRIGGER_HIGH;
+	flags |= IRQF_ONESHOT;
+	ret = devm_request_threaded_irq(&bus->func->dev, bus->of_irq, NULL,
+					 wfx_sdio_irq_handler_ext, flags,
+					 "wfx", bus);
+	if (ret)
+		return ret;
 	sdio_claim_host(bus->func);
 	cccr = sdio_f0_readb(bus->func, SDIO_CCCR_IENx, NULL);
 	cccr |= BIT(0);
 	cccr |= BIT(bus->func->num);
 	sdio_f0_writeb(bus->func, cccr, SDIO_CCCR_IENx, NULL);
 	sdio_release_host(bus->func);
-	flags = irq_get_trigger_type(bus->of_irq);
-	if (!flags)
-		flags = IRQF_TRIGGER_HIGH;
-	flags |= IRQF_ONESHOT;
-	return devm_request_threaded_irq(&bus->func->dev, bus->of_irq, NULL,
-					 wfx_sdio_irq_handler_ext, flags,
-					 "wfx", bus);
+	return 0;
 }
 
 static int wfx_sdio_irq_unsubscribe(void *priv)
@@ -160,14 +198,17 @@ static const struct hwbus_ops wfx_sdio_hwbus_ops = {
 	.copy_to_io = wfx_sdio_copy_to_io,
 	.irq_subscribe = wfx_sdio_irq_subscribe,
 	.irq_unsubscribe = wfx_sdio_irq_unsubscribe,
-	.lock			= wfx_sdio_lock,
-	.unlock			= wfx_sdio_unlock,
-	.align_size		= wfx_sdio_align_size,
+	.lock = wfx_sdio_lock,
+	.unlock = wfx_sdio_unlock,
+	.align_size = wfx_sdio_align_size,
 };
 
 static const struct of_device_id wfx_sdio_of_match[] = {
-	{ .compatible = "silabs,wfx-sdio" },
-	{ .compatible = "silabs,wf200" },
+	{ .compatible = "silabs,wf200", .data = &pdata_wf200 },
+	{ .compatible = "silabs,brd4001a", .data = &pdata_brd4001a },
+	{ .compatible = "silabs,brd8022a", .data = &pdata_brd8022a },
+	{ .compatible = "silabs,brd8023a", .data = &pdata_brd8023a },
+	{ .compatible = "silabs,wfx-sdio", .data = &pdata_wfx_sdio },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, wfx_sdio_of_match);
@@ -176,6 +217,7 @@ static int wfx_sdio_probe(struct sdio_func *func,
 			  const struct sdio_device_id *id)
 {
 	struct device_node *np = func->dev.of_node;
+	const struct wfx_platform_data *pdata;
 	struct wfx_sdio_priv *bus;
 	int ret;
 
@@ -190,7 +232,8 @@ static int wfx_sdio_probe(struct sdio_func *func,
 		return -ENOMEM;
 
 	if (np) {
-		if (!of_match_node(wfx_sdio_of_match, np)) {
+		pdata = of_device_get_match_data(&func->dev);
+		if (!pdata) {
 			dev_warn(&func->dev, "no compatible device found in DT\n");
 			return -ENODEV;
 		}
@@ -199,6 +242,7 @@ static int wfx_sdio_probe(struct sdio_func *func,
 		dev_warn(&func->dev, "device is not declared in DT, features will be limited\n");
 		/* FIXME: ignore VID/PID and only rely on device tree */
 		// return -ENODEV;
+		pdata = &pdata_wf200;
 	}
 
 	bus->func = func;
@@ -213,26 +257,24 @@ static int wfx_sdio_probe(struct sdio_func *func,
 	sdio_set_block_size(func, 64);
 	sdio_release_host(func);
 	if (ret)
-		goto err0;
+		return ret;
 
-	bus->core = wfx_init_common(&func->dev, &wfx_sdio_pdata,
-				    &wfx_sdio_hwbus_ops, bus);
+	bus->core = wfx_init_common(&func->dev, pdata, &wfx_sdio_hwbus_ops, bus);
 	if (!bus->core) {
 		ret = -EIO;
-		goto err1;
+		goto sdio_release;
 	}
 
 	ret = wfx_probe(bus->core);
 	if (ret)
-		goto err1;
+		goto sdio_release;
 
 	return 0;
 
-err1:
+sdio_release:
 	sdio_claim_host(func);
 	sdio_disable_func(func);
 	sdio_release_host(func);
-err0:
 	return ret;
 }
 

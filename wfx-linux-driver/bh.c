@@ -74,8 +74,7 @@ static int rx_helper(struct wfx_dev *wdev, size_t read_len, int *is_cnf)
 	int release_count;
 	int piggyback = 0;
 
-	WARN(read_len > round_down(0xFFF, 2) * sizeof(u16),
-	     "%s: request exceed the chip capability", __func__);
+	WARN(read_len > round_down(0xFFF, 2) * sizeof(u16), "request exceed the chip capability");
 
 	/* Add 2 to take into account piggyback size */
 	alloc_len = wdev->hwbus_ops->align_size(wdev->hwbus_priv, read_len + 2);
@@ -247,9 +246,9 @@ static void tx_helper(struct wfx_dev *wdev, struct hif_msg *hif)
 #else
 	data = hif;
 #endif
-	WARN(len > wdev->hw_caps.size_inp_ch_buf,
-	     "%s: request exceed the chip capability: %zu > %d\n", __func__,
-	     len, wdev->hw_caps.size_inp_ch_buf);
+	WARN(len > le16_to_cpu(wdev->hw_caps.size_inp_ch_buf),
+	     "request exceed the chip capability: %zu > %d\n",
+	     len, le16_to_cpu(wdev->hw_caps.size_inp_ch_buf));
 	len = wdev->hwbus_ops->align_size(wdev->hwbus_priv, len);
 	ret = wfx_data_write(wdev, data, len);
 	if (ret)
@@ -269,7 +268,7 @@ static int bh_work_tx(struct wfx_dev *wdev, int max_msg)
 
 	for (i = 0; i < max_msg; i++) {
 		hif = NULL;
-		if (wdev->hif.tx_buffers_used < wdev->hw_caps.num_inp_ch_bufs) {
+		if (wdev->hif.tx_buffers_used < le16_to_cpu(wdev->hw_caps.num_inp_ch_bufs)) {
 			if (try_wait_for_completion(&wdev->hif_cmd.ready)) {
 				WARN(!mutex_is_locked(&wdev->hif_cmd.lock), "data locking error");
 				hif = wdev->hif_cmd.buf_send;
@@ -367,6 +366,7 @@ void wfx_bh_poll_irq(struct wfx_dev *wdev)
 	u32 reg;
 
 	WARN(!wdev->poll_irq, "unexpected IRQ polling can mask IRQ");
+	flush_workqueue(system_highpri_wq);
 	start = ktime_get();
 	for (;;) {
 		control_reg_read(wdev, &reg);

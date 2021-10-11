@@ -25,7 +25,7 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 }
 #endif
 
-static void __ieee80211_scan_completed_compat(struct ieee80211_hw *hw,
+static void wfx_ieee80211_scan_completed_compat(struct ieee80211_hw *hw,
 					      bool aborted)
 {
 #if (KERNEL_VERSION(4, 8, 0) > LINUX_VERSION_CODE)
@@ -120,8 +120,7 @@ void wfx_hw_scan_work(struct work_struct *work)
 	mutex_lock(&wvif->wdev->conf_mutex);
 	mutex_lock(&wvif->scan_lock);
 	if (wvif->join_in_progress) {
-		dev_info(wvif->wdev->dev, "%s: abort in-progress REQ_JOIN",
-			 __func__);
+		dev_info(wvif->wdev->dev, "abort in-progress REQ_JOIN");
 		wfx_reset(wvif);
 	}
 	update_probe_tmpl(wvif, &hw_req->req);
@@ -142,7 +141,7 @@ void wfx_hw_scan_work(struct work_struct *work)
 	} while (ret >= 0 && chan_cur < hw_req->req.n_channels);
 	mutex_unlock(&wvif->scan_lock);
 	mutex_unlock(&wvif->wdev->conf_mutex);
-	__ieee80211_scan_completed_compat(wvif->wdev->hw, ret < 0);
+	wfx_ieee80211_scan_completed_compat(wvif->wdev->hw, ret < 0);
 }
 
 int wfx_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,

@@ -14,17 +14,7 @@
 #include "bus.h"
 #include "traces.h"
 
-/*
- * Internal helpers.
- *
- * About CONFIG_VMAP_STACK:
- * When CONFIG_VMAP_STACK is enabled, it is not possible to run DMA on stack
- * allocated data. Functions below that work with registers (aka functions
- * ending with "32") automatically reallocate buffers with kmalloc. However,
- * functions that work with arbitrary length buffers let's caller to handle
- * memory location. In doubt, enable CONFIG_DEBUG_SG to detect badly located
- * buffer.
- */
+#define WFX_HIF_BUFFER_SIZE 0x2000
 
 static int read32(struct wfx_dev *wdev, int reg, u32 *val)
 {
@@ -114,7 +104,7 @@ static int indirect_read(struct wfx_dev *wdev, int reg, u32 addr,
 	u32 cfg;
 	u32 prefetch;
 
-	WARN_ON(len >= 0x2000);
+	WARN_ON(len >= WFX_HIF_BUFFER_SIZE);
 	WARN_ON(reg != WFX_REG_AHB_DPORT && reg != WFX_REG_SRAM_DPORT);
 
 	if (reg == WFX_REG_AHB_DPORT)
@@ -162,7 +152,7 @@ static int indirect_write(struct wfx_dev *wdev, int reg, u32 addr,
 {
 	int ret;
 
-	WARN_ON(len >= 0x2000);
+	WARN_ON(len >= WFX_HIF_BUFFER_SIZE);
 	WARN_ON(reg != WFX_REG_AHB_DPORT && reg != WFX_REG_SRAM_DPORT);
 	ret = write32(wdev, WFX_REG_BASE_ADDR, addr);
 	if (ret < 0)
@@ -233,7 +223,7 @@ int wfx_data_read(struct wfx_dev *wdev, void *buf, size_t len)
 {
 	int ret;
 
-	WARN((long)buf & 3, "%s: unaligned buffer", __func__);
+	WARN((long)buf & 3, "unaligned buffer");
 	wdev->hwbus_ops->lock(wdev->hwbus_priv);
 	ret = wdev->hwbus_ops->copy_from_io(wdev->hwbus_priv,
 					    WFX_REG_IN_OUT_QUEUE, buf, len);
@@ -249,7 +239,7 @@ int wfx_data_write(struct wfx_dev *wdev, const void *buf, size_t len)
 {
 	int ret;
 
-	WARN((long)buf & 3, "%s: unaligned buffer", __func__);
+	WARN((long)buf & 3, "unaligned buffer");
 	wdev->hwbus_ops->lock(wdev->hwbus_priv);
 	ret = wdev->hwbus_ops->copy_to_io(wdev->hwbus_priv,
 					  WFX_REG_IN_OUT_QUEUE, buf, len);

@@ -37,7 +37,8 @@ u32 wfx_rate_mask_to_hw(struct wfx_dev *wdev, u32 rates)
 	int i;
 	u32 ret = 0;
 	/* The device only supports 2GHz */
-	struct ieee80211_supported_band *sband = wdev->hw->wiphy->bands[NL80211_BAND_2GHZ];
+	struct ieee80211_supported_band *sband =
+		wdev->hw->wiphy->bands[NL80211_BAND_2GHZ];
 
 	for (i = 0; i < sband->n_bitrates; i++) {
 		if (rates & BIT(i)) {
@@ -559,14 +560,12 @@ void wfx_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		else if (!info->assoc && vif->type == NL80211_IFTYPE_STATION)
 			wfx_reset(wvif);
 		else
-			dev_warn(wdev->dev, "%s: misunderstood change: ASSOC\n",
-				 __func__);
+			dev_warn(wdev->dev, "misunderstood change: ASSOC\n");
 	}
 
 	if (changed & BSS_CHANGED_BEACON_INFO) {
 		if (vif->type != NL80211_IFTYPE_STATION)
-			dev_warn(wdev->dev, "%s: misunderstood change: BEACON_INFO\n",
-				 __func__);
+			dev_warn(wdev->dev, "misunderstood change: BEACON_INFO\n");
 		hif_set_beacon_wakeup_period(wvif, info->dtim_period,
 					     info->dtim_period);
 		/* We temporary forwarded beacon for join process. It is now no
